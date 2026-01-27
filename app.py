@@ -11,7 +11,7 @@ module = st.sidebar.selectbox(
     "Chọn chức năng",
     [
         "Tổng quan",
-        "Xem dữ liệu"
+        "Tải dữ liệu"
     ]
 )
 
@@ -19,6 +19,6 @@ if module == "Tổng quan":
     from modules.dashboard import run
     run()
 
-elif module == "Xem dữ liệu":
+elif module == "Tải dữ liệu":
     from modules.data_viewer import run
     run()
