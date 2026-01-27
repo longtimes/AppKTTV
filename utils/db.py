@@ -1,11 +1,13 @@
 import sqlite3
 from pathlib import Path
 
+# ===============================
 # Thư mục gốc app/
+# ===============================
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Thư mục data
-DATA_DIR = BASE_DIR / "data"
+# Thư mục data/
+DATA_DIR = BASE_DIR / "D:/DEV/app/data"
 DATA_DIR.mkdir(exist_ok=True)
 
 # File CSDL
@@ -20,16 +22,15 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
 
-    # Bảng danh mục trạm (ma_tram là PRIMARY KEY)
+    # ===============================
+    # Bảng dữ liệu thô (GIỐNG JSON)
+    # ===============================
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS stations (
-        ma_tram TEXT PRIMARY KEY,
-        ten_tram TEXT,
-        tab TEXT,
-        yeu_to TEXT,
-        loai_tram TEXT,
-        du_an TEXT,
-        tinh TEXT
+    CREATE TABLE IF NOT EXISTS solieu (
+        matram TEXT NOT NULL,
+        Thoigian_SL TEXT NOT NULL,
+        Solieu REAL,
+        PRIMARY KEY (matram, Thoigian_SL)
     )
     """)
 
@@ -39,5 +40,6 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
-    print("Đã tạo bảng stations với PRIMARY KEY = ma_tram")
-    print("DB:", DB_PATH)
+    print("✅ Đã tạo CSDL observe_data.db")
+    print("✅ Đã tạo bảng solieu (matram, Thoigian_SL, Solieu)")
+    print("📁 DB:", DB_PATH)
