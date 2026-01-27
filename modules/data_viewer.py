@@ -1,11 +1,18 @@
 import streamlit as st
 import pandas as pd
-from services.data_viewer_service import load_solieu
+from services.data_viewer_service import (
+    load_solieu,
+    update_solieu,
+    delete_solieu
+)
 
 
 def run():
     st.header("📊 Số liệu quan trắc")
 
+    # ======================================================
+    # LOAD DỮ LIỆU
+    # ======================================================
     df = load_solieu()
 
     if df.empty:
@@ -50,7 +57,7 @@ def run():
     ]
 
     # ======================================================
-    # BIỂU ĐỒ (ƯU TIÊN HIỂN THỊ)
+    # BIỂU ĐỒ
     # ======================================================
     st.subheader("📈 Biểu đồ theo thời gian")
     st.line_chart(
@@ -58,84 +65,103 @@ def run():
         x="Thoigian_SL",
         y="Solieu",
         color="matram",
-        height=450   # 👈 tăng kích thước biểu đồ
+        height=450
     )
-
-    # ======================================================
-    # METRIC (THU NHỎ – GỌN)
-    # ======================================================
-    st.markdown("""
-    <style>
-    .stat-box {
-        padding: 10px;
-        border-radius: 8px;
-        background-color: #f6f7f9;
-        text-align: center;
-    }
-    .stat-title {
-        font-size: 14px;
-        color: #555;
-    }
-    .stat-value {
-        font-size: 22px;
-        font-weight: 600;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.markdown(
-            f"""
-            <div class="stat-box">
-                <div class="stat-title">📄 Số bản ghi</div>
-                <div class="stat-value">{len(df)}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with c2:
-        st.markdown(
-            f"""
-            <div class="stat-box">
-                <div class="stat-title">📍 Số trạm</div>
-                <div class="stat-value">{df["matram"].nunique()}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with c3:
-        st.markdown(
-            f"""
-            <div class="stat-box">
-                <div class="stat-title">⏱ Khoảng thời gian</div>
-                <div class="stat-value">{tu_ngay} → {den_ngay}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
 
     st.divider()
 
     # ======================================================
-    # BẢNG DỮ LIỆU
+    # CHỈNH SỬA DỮ LIỆU
     # ======================================================
-    st.subheader("📋 Bảng số liệu")
-    st.dataframe(
-        df,
+    st.subheader("✏️ Chỉnh sửa số liệu (có thể sửa & xóa)")
+
+    df_edit = df.copy()
+    df_edit["Xóa"] = False
+
+    edited_df = st.data_editor(
+        df_edit,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        column_config={
+            "matram": st.column_config.TextColumn(
+                "Trạm", disabled=True
+            ),
+            "Thoigian_SL": st.column_config.DatetimeColumn(
+                "Thời gian", disabled=True
+            ),
+            "Solieu": st.column_config.NumberColumn(
+                "Số liệu", step=0.01
+            ),
+            "Xóa": st.column_config.CheckboxColumn("Xóa")
+        },
+        key="editor"
     )
 
     # ======================================================
-    # TẢI CSV
+    # KHỞI TẠO SESSION STATE
     # ======================================================
-    st.download_button(
-        "⬇️ Tải dữ liệu CSV",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name="solieu_loc.csv",
-        mime="text/csv"
-    )
+    if "confirm_delete" not in st.session_state:
+        st.session_state.confirm_delete = False
+
+    # ======================================================
+    # NÚT LƯU
+    # ======================================================
+    if st.button("💾 Lưu thay đổi vào CSDL", type="primary"):
+        df_delete = edited_df[edited_df["Xóa"] == True]
+        df_update = edited_df[edited_df["Xóa"] == False]
+
+        if not df_delete.empty:
+            st.session_state.confirm_delete = True
+            st.session_state.df_delete = df_delete.copy()
+            st.session_state.df_update = df_update.copy()
+        else:
+            df_update["Thoigian_SL"] = df_update["Thoigian_SL"].dt.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            update_solieu(df_update)
+            st.success("✅ Đã cập nhật dữ liệu vào CSDL")
+            st.rerun()
+
+    # ======================================================
+    # CONFIRM XÓA
+    # ======================================================
+    if st.session_state.confirm_delete:
+        st.warning(
+            "⚠️ Bạn sắp **XÓA DỮ LIỆU** khỏi CSDL. "
+            "Hành động này KHÔNG thể hoàn tác!"
+        )
+
+        st.dataframe(
+            st.session_state.df_delete[
+                ["matram", "Thoigian_SL", "Solieu"]
+            ],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        col_yes, col_no = st.columns(2)
+
+        with col_yes:
+            if st.button("🗑️ Xác nhận xóa", type="primary"):
+                df_del = st.session_state.df_delete
+                df_upd = st.session_state.df_update
+
+                df_del["Thoigian_SL"] = df_del["Thoigian_SL"].dt.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                df_upd["Thoigian_SL"] = df_upd["Thoigian_SL"].dt.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
+                update_solieu(df_upd)
+                delete_solieu(df_del)
+
+                st.session_state.confirm_delete = False
+                st.success("✅ Đã xóa và cập nhật dữ liệu vào CSDL")
+                st.rerun()
+
+        with col_no:
+            if st.button("❌ Hủy"):
+                st.session_state.confirm_delete = False
+                st.info("Đã hủy thao tác xóa")
+                st.rerun()
