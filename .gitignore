@@ -1,0 +1,10 @@
+# Bo qua du lieu
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# Log / output
+logs/
+output/
