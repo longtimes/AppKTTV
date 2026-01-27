@@ -1,4 +1,3 @@
-
 import requests
 import json
 from pathlib import Path
@@ -34,7 +33,7 @@ def tao_link_api(matram, tgbd, tgkt):
         "http://203.209.181.170:2018/API_TTB/json/solieu.php"
         f"?matram={matram}"
         "&ten_table=mucnuoc_oday"
-        "&sophut=10"
+        "&sophut=60"
         "&tinhtong=0"
         f"&thoigianbd='{tgbd}'"
         f"&thoigiankt='{tgkt}'"
