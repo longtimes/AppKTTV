@@ -4,56 +4,89 @@ from pathlib import Path
 import glob
 
 # ===============================
-# Đường dẫn
+# Cấu hình đường dẫn
 # ===============================
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data" / "download"
-DB_PATH = BASE_DIR / "data" / "observe_data.db"
+DATA_DIR = BASE_DIR / "data"
+JSON_DIR = DATA_DIR / "download"
+DB_PATH = DATA_DIR / "observe_data.db"
+
 
 # ===============================
-# Kết nối CSDL
+# Kết nối DB
 # ===============================
-conn = sqlite3.connect(DB_PATH)
-cursor = conn.cursor()
+
+def get_connection():
+    return sqlite3.connect(DB_PATH)
+
 
 # ===============================
-# SQL insert
+# Import 1 file JSON
 # ===============================
-sql = """
-INSERT OR IGNORE INTO mucnuoc_oday (ma_tram, thoi_gian, gia_tri)
-VALUES (?, ?, ?)
-"""
 
-# ===============================
-# Đọc tất cả file JSON
-# ===============================
-files = sorted(DATA_DIR.glob("*.json"))
+def import_one_json(json_path):
+    print(f"📂 Đang xử lý: {json_path.name}")
 
-tong = 0
-for file in files:
-    print(f"📂 Đang xử lý: {file.name}")
-
-    with open(file, "r", encoding="utf-8") as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    dem_file = 0
+    if not isinstance(data, list):
+        print("⚠️ File không phải danh sách JSON")
+        return 0
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    sql = """
+        INSERT OR IGNORE INTO solieu (matram, Thoigian_SL, Solieu)
+        VALUES (?, ?, ?)
+    """
+
+    rows = []
     for item in data:
         try:
-            ma_tram = item["matram"]
-            thoi_gian = item["Thoigian_SL"]
-            gia_tri = float(item["Solieu"])
+            matram = item["matram"]
+            thoigian = item["Thoigian_SL"]
+            solieu = float(item["Solieu"]) if item["Solieu"] is not None else None
 
-            cursor.execute(sql, (ma_tram, thoi_gian, gia_tri))
-            dem_file += 1
-        except Exception as e:
-            print(f"⚠️ Bỏ qua bản ghi lỗi: {e}")
+            rows.append((matram, thoigian, solieu))
+        except KeyError as e:
+            print(f"⚠️ Thiếu key {e} trong file {json_path.name}")
 
+    cur.executemany(sql, rows)
     conn.commit()
-    print(f"   ✅ Đã xử lý {dem_file} dòng")
+    conn.close()
 
-    tong += dem_file
+    print(f"✅ Đã import {len(rows)} dòng\n")
+    return len(rows)
 
-cursor.close()
-conn.close()
 
-print(f"\n🎉 Hoàn tất! Tổng số bản ghi xử lý: {tong}")
+# ===============================
+# Import toàn bộ thư mục
+# ===============================
+
+def import_all():
+    if not JSON_DIR.exists():
+        print("❌ Không tồn tại thư mục:", JSON_DIR)
+        return
+
+    json_files = glob.glob(str(JSON_DIR / "*.json"))
+
+    if not json_files:
+        print("⚠️ Không có file JSON nào trong thư mục")
+        return
+
+    total = 0
+    for file_path in json_files:
+        total += import_one_json(Path(file_path))
+
+    print(f"🎉 HOÀN THÀNH – Tổng dòng xử lý: {total}")
+
+
+# ===============================
+# Chạy trực tiếp
+# ===============================
+
+if __name__ == "__main__":
+    import_all()
