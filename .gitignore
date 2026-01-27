@@ -1,5 +1,7 @@
 # Bo qua du lieu
 data/
+*.db
+
 
 # Python
 __pycache__/
