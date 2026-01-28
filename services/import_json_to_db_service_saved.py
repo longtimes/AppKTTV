@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from pathlib import Path
+import glob
 
 # ===============================
 # Cấu hình đường dẫn
@@ -17,7 +18,7 @@ DB_PATH = DATA_DIR / "observe_data.db"
 # ===============================
 
 def get_connection():
-    return sqlite3.connect(DB_PATH, timeout=10)
+    return sqlite3.connect(DB_PATH)
 
 
 # ===============================
@@ -31,7 +32,8 @@ def import_one_json(json_path: Path) -> int:
         data = json.load(f)
 
     if not isinstance(data, list):
-        raise ValueError("File JSON không phải dạng danh sách")
+        print("⚠️ File không phải danh sách JSON")
+        return 0
 
     conn = get_connection()
     cur = conn.cursor()
@@ -46,30 +48,21 @@ def import_one_json(json_path: Path) -> int:
         try:
             matram = item["matram"]
             thoigian = item["Thoigian_SL"]
-            solieu = (
-                float(item["Solieu"])
-                if item.get("Solieu") not in (None, "")
-                else None
-            )
+            solieu = float(item["Solieu"]) if item["Solieu"] is not None else None
             rows.append((matram, thoigian, solieu))
         except KeyError as e:
             print(f"⚠️ Thiếu key {e} trong file {json_path.name}")
 
-    try:
-        cur.executemany(sql, rows)
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    cur.executemany(sql, rows)
+    conn.commit()
+    conn.close()
 
-    print(f"✅ Đã import {len(rows)} dòng")
+    print(f"✅ Đã import {len(rows)} dòng\n")
     return len(rows)
 
 
 # ===============================
-# Import toàn bộ thư mục
+# Import toàn bộ thư mục (logic lõi)
 # ===============================
 
 def import_all() -> int:
@@ -82,30 +75,20 @@ def import_all() -> int:
         raise FileNotFoundError("Không có file JSON nào trong thư mục download")
 
     total = 0
-
     for file_path in json_files:
-        try:
-            rows = import_one_json(file_path)
-            total += rows
+        total += import_one_json(file_path)
 
-            # ✅ CHỈ XOÁ FILE KHI IMPORT THÀNH CÔNG
-            file_path.unlink()
-            print(f"🗑️ Đã xoá file: {file_path.name}\n")
-
-        except Exception as e:
-            print(f"❌ Lỗi file {file_path.name}: {e}\n")
-
-    print(f"🎉 HOÀN THÀNH – Tổng dòng import: {total}")
+    print(f"🎉 HOÀN THÀNH – Tổng dòng xử lý: {total}")
     return total
 
 
 # ===============================
-# Hàm dùng cho modules / Streamlit
+# HÀM DÙNG CHO STREAMLIT (QUAN TRỌNG)
 # ===============================
 
 def import_to_db():
     """
-    Hàm adapter cho UI
+    Hàm adapter cho Streamlit
     BẮT BUỘC return (ok, message)
     """
     try:
