@@ -1,13 +1,10 @@
 import streamlit as st
 import pandas as pd
-
 from services.data_viewer_service import (
     load_solieu,
     update_solieu,
     delete_solieu
 )
-
-from services.tram_mapping import get_ten_tram
 
 
 def run():
@@ -30,15 +27,9 @@ def run():
     df = df.sort_values("Thoigian_SL")
 
     # ======================================================
-    # THÊM TÊN TRẠM (QUAN TRỌNG)
+    # CHỌN TRẠM
     # ======================================================
-    df["ten_tram"] = df["matram"].astype(str).apply(get_ten_tram)
-
-    # ======================================================
-    # CHỌN TRẠM (THEO TÊN)
-    # ======================================================
-    tram_list = sorted(df["ten_tram"].unique())
-
+    tram_list = sorted(df["matram"].unique())
     tram_chon = st.multiselect(
         "📍 Chọn trạm",
         tram_list,
@@ -46,7 +37,7 @@ def run():
     )
 
     if tram_chon:
-        df = df[df["ten_tram"].isin(tram_chon)]
+        df = df[df["matram"].isin(tram_chon)]
 
     # ======================================================
     # CHỌN KHOẢNG THỜI GIAN
@@ -69,12 +60,11 @@ def run():
     # BIỂU ĐỒ
     # ======================================================
     st.subheader("📈 Biểu đồ theo thời gian")
-
     st.line_chart(
         df,
         x="Thoigian_SL",
         y="Solieu",
-        color="ten_tram",
+        color="matram",
         height=450
     )
 
@@ -93,11 +83,8 @@ def run():
         use_container_width=True,
         hide_index=True,
         column_config={
-            "ten_tram": st.column_config.TextColumn(
-                "Trạm", disabled=True
-            ),
             "matram": st.column_config.TextColumn(
-                "Mã trạm", disabled=True
+                "Trạm", disabled=True
             ),
             "Thoigian_SL": st.column_config.DatetimeColumn(
                 "Thời gian", disabled=True
@@ -111,13 +98,13 @@ def run():
     )
 
     # ======================================================
-    # SESSION STATE
+    # KHỞI TẠO SESSION STATE
     # ======================================================
     if "confirm_delete" not in st.session_state:
         st.session_state.confirm_delete = False
 
     # ======================================================
-    # LƯU DỮ LIỆU
+    # NÚT LƯU
     # ======================================================
     if st.button("💾 Lưu thay đổi vào CSDL", type="primary"):
         df_delete = edited_df[edited_df["Xóa"] == True]
@@ -146,7 +133,7 @@ def run():
 
         st.dataframe(
             st.session_state.df_delete[
-                ["ten_tram", "Thoigian_SL", "Solieu"]
+                ["matram", "Thoigian_SL", "Solieu"]
             ],
             use_container_width=True,
             hide_index=True
