@@ -4,16 +4,16 @@ from services.download_observe_data_service import tai_tat_ca_tram
 def run():
     st.header("📥 Tải dữ liệu quan trắc mực nước")
 
-    st.markdown("Nhập thời gian theo định dạng: `YYYY-MM-DD HH:MM`")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        tgbd = st.text_input("⏱️ Thời gian bắt đầu", "2025-01-01 00:00")
-    with col2:
-        tgkt = st.text_input("⏱️ Thời gian kết thúc", "2025-01-02 00:00")
+    st.markdown(
+        "Hệ thống sẽ **tự động tải dữ liệu từ thời điểm có số liệu gần nhất trong DB** "
+        "đến **thời điểm hiện tại**."
+    )
 
     if st.button("🚀 Tải dữ liệu", use_container_width=True):
         with st.spinner("Đang tải dữ liệu từ API KTTV..."):
-            ket_qua = tai_tat_ca_tram(tgbd, tgkt)
+            ok, msg = tai_tat_ca_tram()
 
-        st.success("✅ Hoàn thành tải dữ liệu")
+        if ok:
+            st.success(msg)
+        else:
+            st.error(msg)

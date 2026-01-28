@@ -1,7 +1,11 @@
 import requests
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# import nội bộ trong package services
+from .db_service import lay_thoi_gian_cuoi
+
 # ===============================
 # Thư mục dự án & lưu dữ liệu
 # ===============================
@@ -26,7 +30,18 @@ TRAM = {
 }
 
 # ===============================
-# Tạo link API (đúng chuẩn của bạn)
+# Parse datetime an toàn
+# ===============================
+def parse_datetime_safe(s: str) -> datetime:
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Không parse được datetime: {s}")
+
+# ===============================
+# Tạo link API
 # ===============================
 def tao_link_api(matram, tgbd, tgkt):
     return (
@@ -42,9 +57,9 @@ def tao_link_api(matram, tgbd, tgkt):
 # ===============================
 # Tải 1 trạm
 # ===============================
-def tai_1_tram(matram, tentram, tgbd, tgkt):
+def tai_1_tram(matram, tentram, tgbd, tgkt) -> int:
     url = tao_link_api(matram, tgbd, tgkt)
-    print(f"\n📡 Trạm {matram} – {tentram}")
+    print(f"\n📡 {tentram} ({matram})")
     print("🔗", url)
 
     try:
@@ -53,8 +68,8 @@ def tai_1_tram(matram, tentram, tgbd, tgkt):
         data = r.json()
 
         if not data:
-            print("⚠️ Không có dữ liệu")
-            return
+            print("⚠️ Không có dữ liệu mới")
+            return 0
 
         filename = f"{matram}_{tgbd.replace(':','')}_{tgkt.replace(':','')}.json"
         filepath = DATA_DIR / filename
@@ -62,28 +77,49 @@ def tai_1_tram(matram, tentram, tgbd, tgkt):
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-        print(f"✅ Lưu {len(data)} bản ghi → {filepath.name}")
+        print(f"✅ Lưu {len(data)} bản ghi")
+        return len(data)
 
     except Exception as e:
         print(f"❌ Lỗi trạm {matram}: {e}")
+        return 0
 
 # ===============================
-# Tải toàn bộ trạm
+# Tải toàn bộ trạm (CHO STREAMLIT)
 # ===============================
-def tai_tat_ca_tram(tgbd, tgkt):
-    print("🚀 Bắt đầu tải dữ liệu")
-    print(f"⏱️ Thời gian: {tgbd} → {tgkt}")
+def tai_tat_ca_tram():
+    try:
+        # 1️⃣ Lấy thời gian cuối trong DB
+        tg_cuoi = lay_thoi_gian_cuoi()
 
-    for matram, tentram in TRAM.items():
-        tai_1_tram(matram, tentram, tgbd, tgkt)
+        if tg_cuoi:
+            tgbd = parse_datetime_safe(tg_cuoi) + timedelta(hours=1)
+            print(f"📌 DB đã có dữ liệu đến: {tg_cuoi}")
+        else:
+            tgbd = datetime(2025, 1, 1, 0, 0)
+            print("📌 DB chưa có dữ liệu, tải từ đầu")
 
-    print("\n🎉 Hoàn thành tải dữ liệu cho tất cả trạm")
+        tgkt = datetime.now()
+
+        tgbd_str = tgbd.strftime("%Y-%m-%d %H:%M")
+        tgkt_str = tgkt.strftime("%Y-%m-%d %H:%M")
+
+        print(f"⏱️ Khoảng tải: {tgbd_str} → {tgkt_str}")
+
+        # 2️⃣ Tải từng trạm
+        tong = 0
+        for matram, tentram in TRAM.items():
+            tong += tai_1_tram(matram, tentram, tgbd_str, tgkt_str)
+
+        # 3️⃣ TRẢ KẾT QUẢ CHO UI
+        return True, f"🎉 Hoàn thành tải {tong} bản ghi cho {len(TRAM)} trạm"
+
+    except Exception as e:
+        return False, f"❌ Lỗi khi tải dữ liệu: {e}"
 
 # ===============================
-# Chạy độc lập
+# Chạy độc lập (test)
 # ===============================
 if __name__ == "__main__":
-    tai_tat_ca_tram(
-        tgbd="2025-01-01 00:00",
-        tgkt="2025-01-02 00:00"
-    )
+    ok, msg = tai_tat_ca_tram()
+    print(msg)
